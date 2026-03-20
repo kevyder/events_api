@@ -1,6 +1,6 @@
 FROM python:3.14.0-slim
 
-ENV UV_VERSION=0.9.11
+ENV UV_VERSION=0.10.12
 ENV UV_PROJECT_ENVIRONMENT="/usr/local/"
 
 # Set work directory

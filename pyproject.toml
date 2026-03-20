@@ -1,8 +1,6 @@
 [project]
-name = "fastapi-template"
+name = "events-api"
 version = "1.0.0"
-description = "This project is a template for building FastAPI applications with best practices for development, testing, and deployment using Docker and uv."
-authors = [{ name = "Kevin Rodríguez", email = "kyrodriguez97@gmail.com" }]
 requires-python = ">=3.13"
 readme = "README.md"
 dependencies = [
@@ -19,7 +17,7 @@ test = [
 ]
 dev = [
     "pre-commit (==4.5.1)",
-    "ruff (==0.15.6)",
+    "ruff (==0.15.7)",
 ]
 
 # Ruff configuration
