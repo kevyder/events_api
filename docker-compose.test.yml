@@ -1,0 +1,14 @@
+version: '3.8'
+services:
+  fastapi-test:
+    build: .
+    container_name: fastapi_test_app
+    command: >
+      bash -c "uv sync --group test -qq
+      && pytest --maxfail=1 --disable-warnings -v"
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests
+    environment:
+      - PYTHONUNBUFFERED=1
+    working_dir: /app

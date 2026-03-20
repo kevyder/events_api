@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.13.9", "3.14.0"]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+        allow-prereleases: true
+
+    - name: Install uv
+      run: pip install uv
+
+    - name: Setup Virtual Environment
+      run: uv venv
+
+    - name: Load cached dependencies
+      id: cached-dependencies
+      uses: actions/cache@v3
+      with:
+        path: .venv
+        key: venv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('**/pyproject.toml') }}
+
+    - name: Install dependencies
+      if: steps.cached-dependencies.outputs.cache-hit != 'true'
+      run: |
+        source .venv/bin/activate
+        uv sync --group test
+
+    - name: Run tests
+      run: |
+        source .venv/bin/activate
+        pytest --verbosity=2
+
+  lint:
+    name: Code Quality
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.13.9"
+
+    - name: Install uv
+      run: pip install uv
+
+    - name: Setup Virtual Environment
+      run: uv venv
+
+    - name: Install dependencies
+      run: |
+        source .venv/bin/activate
+        uv sync --group dev
+
+    - name: Run pre-commit
+      uses: pre-commit/action@v3.0.0
