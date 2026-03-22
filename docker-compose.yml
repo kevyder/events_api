@@ -1,12 +1,41 @@
 services:
+  db:
+    image: postgres:17-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: events_user
+      POSTGRES_PASSWORD: events_password
+      POSTGRES_DB: events_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U events_user -d events_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   fastapi:
     build: .
     restart: always
-    container_name: fastapi_app
+    container_name: events_api
     ports:
       - "8080:8080"
     volumes:
       - .:/app
     environment:
       - PYTHONUNBUFFERED=1
-    command: ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8080", "--reload"]
+      - DATABASE_URL=postgresql+asyncpg://events_user:events_password@db:5432/events_db
+      - JWT_SECRET_KEY=dev-secret-key-change-in-production
+      - DEFAULT_ADMIN_EMAIL=admin@example.com
+      - DEFAULT_ADMIN_PASSWORD=changeme123
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      bash -c "alembic upgrade head
+      && fastapi dev src/main.py --host 0.0.0.0 --port 8080 --reload"
+
+volumes:
+  postgres_data:
