@@ -306,7 +306,6 @@ dependencies = [
     { name = "bcrypt" },
     { name = "fastapi", extra = ["standard"] },
     { name = "psycopg2-binary" },
-    { name = "pydantic", extra = ["email"] },
     { name = "pyjwt" },
     { name = "sqlalchemy", extra = ["asyncio"] },
 ]
@@ -330,7 +329,6 @@ requires-dist = [
     { name = "bcrypt", specifier = "==5.0.0" },
     { name = "fastapi", extras = ["standard"], specifier = "==0.135.1" },
     { name = "psycopg2-binary", specifier = "==2.9.11" },
-    { name = "pydantic", extras = ["email"] },
     { name = "pyjwt", specifier = "==2.12.1" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = "==2.0.48" },
 ]

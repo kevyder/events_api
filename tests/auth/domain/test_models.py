@@ -29,3 +29,11 @@ def test_user_with_explicit_id():
     """Test that User can be created with an explicit ID."""
     user = User(email="bob@example.com", hashed_password="hashed789", id="custom-id")
     assert user.id == "custom-id"
+
+
+def test_user_email_validation():
+    """Test that User email is validated correctly."""
+    try:
+        User(email="invalid-email", hashed_password="hashed000")
+    except Exception as e:
+        assert "value is not a valid email address" in str(e)
