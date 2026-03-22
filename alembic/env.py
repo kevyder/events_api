@@ -3,10 +3,12 @@ from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
 from sqlmodel import SQLModel
 
-# Import all ORM models so autogenerate can detect them
-import src.auth.infrastructure.database.models.user  # noqa: F401
 from alembic import context
+
+# Import all ORM models so autogenerate can detect them
+from src.auth.infrastructure.database.models.user import UserModel  # noqa: F401
 from src.config import settings
+from src.event.infrastructure.database.models.event import EventModel  # noqa: F401
 
 config = context.config
 

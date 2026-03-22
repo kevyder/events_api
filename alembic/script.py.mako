@@ -9,6 +9,7 @@ from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
+import sqlmodel
 
 # revision identifiers, used by Alembic.
 revision: str = ${repr(up_revision)}
