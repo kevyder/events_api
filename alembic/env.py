@@ -1,12 +1,12 @@
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config, pool
+from sqlmodel import SQLModel
 
 # Import all ORM models so autogenerate can detect them
 import src.auth.infrastructure.database.models.user  # noqa: F401
 from alembic import context
 from src.config import settings
-from src.database import Base
 
 config = context.config
 
@@ -20,7 +20,7 @@ config.set_main_option(
     settings.DATABASE_URL.replace("+asyncpg", "+psycopg2"),
 )
 
-target_metadata = Base.metadata
+target_metadata = SQLModel.metadata
 
 
 def run_migrations_offline() -> None:

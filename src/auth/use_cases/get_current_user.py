@@ -1,3 +1,5 @@
+import uuid
+
 from src.auth.domain.contracts import TokenService
 from src.auth.domain.exceptions import AuthenticationError
 from src.auth.domain.models import User
@@ -14,9 +16,14 @@ class GetCurrentUser:
     async def execute(self, token: str) -> User:
         """Validate the token and return the domain User entity."""
         payload = self._token_service.decode_token(token)
-        user_id: str | None = payload.get("sub")
-        if user_id is None:
+        sub: str | None = payload.get("sub")
+        if sub is None:
             raise AuthenticationError("Invalid token payload")
+
+        try:
+            user_id = uuid.UUID(sub)
+        except ValueError as err:
+            raise AuthenticationError("Invalid token payload") from err
 
         user = await self._user_repository.get_by_id(user_id)
         if user is None:

@@ -1,3 +1,5 @@
+import uuid
+
 from src.auth.domain.models import Role, User
 
 
@@ -8,7 +10,7 @@ def test_user_creation_defaults():
     assert user.hashed_password == "hashed123"
     assert user.role == Role.USER
     assert user.id is not None
-    assert len(user.id) == 36  # UUID format
+    assert isinstance(user.id, uuid.UUID)
 
 
 def test_user_creation_with_admin_role():
@@ -27,8 +29,9 @@ def test_role_values():
 
 def test_user_with_explicit_id():
     """Test that User can be created with an explicit ID."""
-    user = User(email="bob@example.com", hashed_password="hashed789", id="custom-id")
-    assert user.id == "custom-id"
+    explicit_id = uuid.UUID("12345678-1234-5678-1234-567812345678")
+    user = User(email="bob@example.com", hashed_password="hashed789", id=explicit_id)
+    assert user.id == explicit_id
 
 
 def test_user_email_validation():

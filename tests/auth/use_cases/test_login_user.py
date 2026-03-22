@@ -1,3 +1,4 @@
+import uuid
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -7,6 +8,8 @@ from src.auth.domain.exceptions import AuthenticationError
 from src.auth.domain.models import User
 from src.auth.domain.repositories import UserRepository
 from src.auth.use_cases.login_user import LoginUser
+
+USER_ID = uuid.UUID("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
 
 
 def _make_use_case() -> tuple[LoginUser, AsyncMock, Mock, Mock]:
@@ -20,7 +23,7 @@ def _make_use_case() -> tuple[LoginUser, AsyncMock, Mock, Mock]:
 async def test_login_success():
     """Test successful login returns a token string."""
     use_case, repo, hasher, token_svc = _make_use_case()
-    user = User(email="alice@example.com", hashed_password="hashed", id="user-id-1")
+    user = User(email="alice@example.com", hashed_password="hashed", id=USER_ID)
     repo.get_by_email.return_value = user
     hasher.verify.return_value = True
     token_svc.create_access_token.return_value = "jwt-token-string"

@@ -1,14 +1,14 @@
-import sqlalchemy as sa
+import uuid
 
-from src.database import Base
+from sqlmodel import Field, SQLModel
 
 
-class UserModel(Base):
-    """SQLAlchemy ORM model for users."""
+class UserModel(SQLModel, table=True):
+    """SQLModel ORM model for users."""
 
     __tablename__ = "users"
 
-    id = sa.Column(sa.String(36), primary_key=True)
-    email = sa.Column(sa.String(254), unique=True, nullable=False, index=True)
-    hashed_password = sa.Column(sa.String(255), nullable=False)
-    role = sa.Column(sa.String(20), nullable=False, default="user")
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    email: str = Field(unique=True, index=True, max_length=254)
+    hashed_password: str = Field(max_length=255)
+    role: str = Field(default="user", max_length=20)

@@ -3,8 +3,9 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from sqlmodel import SQLModel
 
-# Ensure ORM models are imported so Base.metadata knows about all tables
+# Ensure ORM models are imported so SQLModel.metadata knows about all tables
 import src.auth.infrastructure.database.models.user  # noqa: F401
 import src.database as database
 from src.auth.api.routes import router as auth_router
@@ -16,7 +17,7 @@ from src.auth.infrastructure.bootstrap.seed_admin import seed_admin
 async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
     """Create database tables on startup (dev/test). Use Alembic migrations in production."""
     async with database.engine.begin() as conn:
-        await conn.run_sync(database.Base.metadata.create_all)
+        await conn.run_sync(SQLModel.metadata.create_all)
 
     async with database.async_session_factory() as session:
         await seed_admin(session)

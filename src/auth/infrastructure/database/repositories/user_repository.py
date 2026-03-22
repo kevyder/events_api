@@ -1,3 +1,5 @@
+import uuid
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,7 +23,7 @@ class SQLAlchemyUserRepository(UserRepository):
             return None
         return self._to_domain(row)
 
-    async def get_by_id(self, user_id: str) -> User | None:
+    async def get_by_id(self, user_id: uuid.UUID) -> User | None:
         """Retrieve a user by ID."""
         stmt = select(UserModel).where(UserModel.id == user_id)
         result = await self._session.execute(stmt)

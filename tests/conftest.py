@@ -4,9 +4,10 @@ import pytest
 import pytest_asyncio
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlmodel import SQLModel
 
 import src.database as database
-from src.database import Base, get_async_session
+from src.database import get_async_session
 from src.main import app
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
@@ -19,14 +20,14 @@ test_async_session_factory = async_sessionmaker(test_engine, class_=AsyncSession
 async def async_session() -> AsyncGenerator[AsyncSession]:
     """Provide a clean async session for each test, with tables created/dropped."""
     async with test_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-        await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(SQLModel.metadata.drop_all)
+        await conn.run_sync(SQLModel.metadata.create_all)
 
     async with test_async_session_factory() as session:
         yield session
 
     async with test_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+        await conn.run_sync(SQLModel.metadata.drop_all)
 
 
 async def _override_get_async_session() -> AsyncGenerator[AsyncSession]:

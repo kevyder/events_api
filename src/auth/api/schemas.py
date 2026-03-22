@@ -1,3 +1,5 @@
+import uuid
+
 from pydantic import BaseModel, EmailStr, Field
 
 
@@ -25,6 +27,6 @@ class TokenResponse(BaseModel):
 class UserResponse(BaseModel):
     """Response body representing a user."""
 
-    id: str
+    id: uuid.UUID
     email: EmailStr
     role: str

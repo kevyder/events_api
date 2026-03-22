@@ -15,7 +15,7 @@ class JwtTokenService(TokenService):
         """Create a JWT access token for the given user."""
         expire = datetime.now(UTC) + timedelta(minutes=settings.JWT_EXPIRATION_MINUTES)
         payload = {
-            "sub": user.id,
+            "sub": str(user.id),
             "email": user.email,
             "role": user.role.value,
             "exp": expire,

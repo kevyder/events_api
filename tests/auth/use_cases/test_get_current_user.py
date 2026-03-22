@@ -1,3 +1,4 @@
+import uuid
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -7,6 +8,9 @@ from src.auth.domain.exceptions import AuthenticationError
 from src.auth.domain.models import User
 from src.auth.domain.repositories import UserRepository
 from src.auth.use_cases.get_current_user import GetCurrentUser
+
+USER_ID = uuid.UUID("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
+DELETED_ID = uuid.UUID("dddddddd-dddd-dddd-dddd-dddddddddddd")
 
 
 def _make_use_case() -> tuple[GetCurrentUser, AsyncMock, Mock]:
@@ -19,16 +23,16 @@ def _make_use_case() -> tuple[GetCurrentUser, AsyncMock, Mock]:
 async def test_get_current_user_success():
     """Test getting current user from a valid token."""
     use_case, repo, token_svc = _make_use_case()
-    user = User(email="alice@example.com", hashed_password="hashed", id="user-id-1")
-    token_svc.decode_token.return_value = {"sub": "user-id-1", "email": "alice@example.com", "role": "user"}
+    user = User(email="alice@example.com", hashed_password="hashed", id=USER_ID)
+    token_svc.decode_token.return_value = {"sub": str(USER_ID), "email": "alice@example.com", "role": "user"}
     repo.get_by_id.return_value = user
 
     result = await use_case.execute(token="valid-token")
 
     assert result.email == "alice@example.com"
-    assert result.id == "user-id-1"
+    assert result.id == USER_ID
     token_svc.decode_token.assert_called_once_with("valid-token")
-    repo.get_by_id.assert_awaited_once_with("user-id-1")
+    repo.get_by_id.assert_awaited_once_with(USER_ID)
 
 
 async def test_get_current_user_invalid_token():
@@ -52,7 +56,11 @@ async def test_get_current_user_missing_sub():
 async def test_get_current_user_user_not_found():
     """Test that a valid token for a deleted user raises AuthenticationError."""
     use_case, repo, token_svc = _make_use_case()
-    token_svc.decode_token.return_value = {"sub": "deleted-id", "email": "ghost@example.com", "role": "user"}
+    token_svc.decode_token.return_value = {
+        "sub": str(DELETED_ID),
+        "email": "ghost@example.com",
+        "role": "user",
+    }
     repo.get_by_id.return_value = None
 
     with pytest.raises(AuthenticationError, match="User not found"):

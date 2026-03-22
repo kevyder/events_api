@@ -1,3 +1,4 @@
+import uuid
 from abc import ABC, abstractmethod
 
 from src.auth.domain.models import User
@@ -11,7 +12,7 @@ class UserRepository(ABC):
         """Retrieve a user by email. Returns None if not found."""
 
     @abstractmethod
-    async def get_by_id(self, user_id: str) -> User | None:
+    async def get_by_id(self, user_id: uuid.UUID) -> User | None:
         """Retrieve a user by ID. Returns None if not found."""
 
     @abstractmethod

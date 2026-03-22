@@ -28,8 +28,8 @@ services:
       - PYTHONUNBUFFERED=1
       - DATABASE_URL=postgresql+asyncpg://events_user:events_password@db:5432/events_db
       - JWT_SECRET_KEY=dev-secret-key-change-in-production
-      - DEFAULT_ADMIN_EMAIL=admin@example.com
-      - DEFAULT_ADMIN_PASSWORD=changeme123
+      - DEFAULT_ADMIN_EMAIL=admin@email.com
+      - DEFAULT_ADMIN_PASSWORD=admin
     depends_on:
       db:
         condition: service_healthy
