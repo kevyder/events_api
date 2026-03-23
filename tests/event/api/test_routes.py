@@ -34,6 +34,18 @@ def _create_event_payload(**overrides) -> dict:
     return payload
 
 
+def _create_session_payload(start_time: str, end_time: str, **overrides) -> dict:
+    """Build a valid session creation payload."""
+    payload = {
+        "title": "Opening Keynote",
+        "speaker": "Jane Doe",
+        "start_time": start_time,
+        "end_time": end_time,
+    }
+    payload.update(overrides)
+    return payload
+
+
 def _get_admin_token(client: TestClient) -> str:
     """Register an admin via seed and return the JWT token."""
     login_resp = client.post("/auth/login", json={"email": "admin@example.com", "password": "password123"})
@@ -284,11 +296,295 @@ def test_list_and_get_event():
         data = list_resp.json()
         assert data["total"] >= 1
         assert any(e["id"] == event_id for e in data["items"])
+        assert "sessions" not in data["items"][0]
 
         # Get (no auth)
         get_resp = c.get(f"/events/{event_id}")
         assert get_resp.status_code == 200
         assert get_resp.json()["name"] == "Visible Event"
+        assert get_resp.json()["sessions"] == []
+
+
+def test_get_event_includes_sorted_sessions():
+    """Test that single event endpoint includes sessions sorted by start_time ascending."""
+    for c in _admin_client():
+        token = _get_admin_token(c)
+        create_resp = c.post(
+            "/events",
+            json=_create_event_payload(name="Visible Event"),
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        event = create_resp.json()
+        event_id = event["id"]
+
+        c.post(
+            f"/events/{event_id}/sessions",
+            json=_create_session_payload(
+                start_time=(datetime.fromisoformat(event["start_date"]) + timedelta(hours=2)).isoformat(),
+                end_time=(datetime.fromisoformat(event["start_date"]) + timedelta(hours=3)).isoformat(),
+                title="Later Session",
+            ),
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        c.post(
+            f"/events/{event_id}/sessions",
+            json=_create_session_payload(
+                start_time=(datetime.fromisoformat(event["start_date"]) + timedelta(hours=1)).isoformat(),
+                end_time=(datetime.fromisoformat(event["start_date"]) + timedelta(hours=2)).isoformat(),
+                title="Earlier Session",
+            ),
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        get_resp = c.get(f"/events/{event_id}")
+
+        assert get_resp.status_code == 200
+        sessions = get_resp.json()["sessions"]
+        assert [session["title"] for session in sessions] == ["Earlier Session", "Later Session"]
+
+
+def test_create_session_requires_admin():
+    """Test that a regular user cannot create sessions."""
+    for c in _admin_client():
+        admin_token = _get_admin_token(c)
+        user_token = _get_user_token(c)
+        create_resp = c.post(
+            "/events",
+            json=_create_event_payload(),
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        event = create_resp.json()
+
+        response = c.post(
+            f"/events/{event['id']}/sessions",
+            json=_create_session_payload(
+                start_time=(datetime.fromisoformat(event["start_date"]) + timedelta(hours=1)).isoformat(),
+                end_time=(datetime.fromisoformat(event["start_date"]) + timedelta(hours=2)).isoformat(),
+            ),
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+
+        assert response.status_code == 403
+
+
+def test_create_session_success():
+    """Test that an admin can create a session within the event window."""
+    for c in _admin_client():
+        token = _get_admin_token(c)
+        create_resp = c.post(
+            "/events",
+            json=_create_event_payload(),
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        event = create_resp.json()
+
+        response = c.post(
+            f"/events/{event['id']}/sessions",
+            json=_create_session_payload(
+                start_time=(datetime.fromisoformat(event["start_date"]) + timedelta(hours=1)).isoformat(),
+                end_time=(datetime.fromisoformat(event["start_date"]) + timedelta(hours=2)).isoformat(),
+            ),
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 201
+        data = response.json()
+        assert data["title"] == "Opening Keynote"
+        assert data["speaker"] == "Jane Doe"
+        assert data["event_id"] == event["id"]
+
+
+def test_create_session_rejects_outside_event_window():
+    """Test that a session outside the event bounds returns 422."""
+    for c in _admin_client():
+        token = _get_admin_token(c)
+        create_resp = c.post(
+            "/events",
+            json=_create_event_payload(),
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        event = create_resp.json()
+
+        response = c.post(
+            f"/events/{event['id']}/sessions",
+            json=_create_session_payload(
+                start_time=(datetime.fromisoformat(event["start_date"]) - timedelta(minutes=30)).isoformat(),
+                end_time=(datetime.fromisoformat(event["start_date"]) + timedelta(hours=1)).isoformat(),
+            ),
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 422
+
+
+def test_create_session_rejects_overlapping_schedule():
+    """Test that overlapping sessions for the same event return 422."""
+    for c in _admin_client():
+        token = _get_admin_token(c)
+        create_resp = c.post(
+            "/events",
+            json=_create_event_payload(),
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        event = create_resp.json()
+        event_start = datetime.fromisoformat(event["start_date"])
+
+        first_session_resp = c.post(
+            f"/events/{event['id']}/sessions",
+            json=_create_session_payload(
+                start_time=(event_start + timedelta(hours=1)).isoformat(),
+                end_time=(event_start + timedelta(hours=2)).isoformat(),
+            ),
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert first_session_resp.status_code == 201
+
+        response = c.post(
+            f"/events/{event['id']}/sessions",
+            json=_create_session_payload(
+                start_time=(event_start + timedelta(hours=1, minutes=30)).isoformat(),
+                end_time=(event_start + timedelta(hours=2, minutes=30)).isoformat(),
+            ),
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 422
+
+
+def test_update_session_success():
+    """Test that an admin can update a session."""
+    for c in _admin_client():
+        token = _get_admin_token(c)
+        create_resp = c.post(
+            "/events",
+            json=_create_event_payload(),
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        event = create_resp.json()
+        session_resp = c.post(
+            f"/events/{event['id']}/sessions",
+            json=_create_session_payload(
+                start_time=(datetime.fromisoformat(event["start_date"]) + timedelta(hours=1)).isoformat(),
+                end_time=(datetime.fromisoformat(event["start_date"]) + timedelta(hours=2)).isoformat(),
+            ),
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        session_id = session_resp.json()["id"]
+
+        response = c.patch(
+            f"/events/{event['id']}/sessions/{session_id}",
+            json={"title": "Updated Keynote"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 200
+        assert response.json()["title"] == "Updated Keynote"
+
+
+def test_update_session_rejects_overlapping_schedule():
+    """Test that updating a session into another session's timeslot returns 422."""
+    for c in _admin_client():
+        token = _get_admin_token(c)
+        create_resp = c.post(
+            "/events",
+            json=_create_event_payload(),
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        event = create_resp.json()
+        event_start = datetime.fromisoformat(event["start_date"])
+
+        first_session_resp = c.post(
+            f"/events/{event['id']}/sessions",
+            json=_create_session_payload(
+                start_time=(event_start + timedelta(hours=1)).isoformat(),
+                end_time=(event_start + timedelta(hours=2)).isoformat(),
+                title="First Session",
+            ),
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        second_session_resp = c.post(
+            f"/events/{event['id']}/sessions",
+            json=_create_session_payload(
+                start_time=(event_start + timedelta(hours=3)).isoformat(),
+                end_time=(event_start + timedelta(hours=4)).isoformat(),
+                title="Second Session",
+            ),
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert first_session_resp.status_code == 201
+        assert second_session_resp.status_code == 201
+
+        response = c.patch(
+            f"/events/{event['id']}/sessions/{second_session_resp.json()['id']}",
+            json={
+                "start_time": (event_start + timedelta(hours=1, minutes=30)).isoformat(),
+                "end_time": (event_start + timedelta(hours=2, minutes=30)).isoformat(),
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 422
+
+
+def test_delete_session_success():
+    """Test that an admin can delete a session."""
+    for c in _admin_client():
+        token = _get_admin_token(c)
+        create_resp = c.post(
+            "/events",
+            json=_create_event_payload(),
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        event = create_resp.json()
+        session_resp = c.post(
+            f"/events/{event['id']}/sessions",
+            json=_create_session_payload(
+                start_time=(datetime.fromisoformat(event["start_date"]) + timedelta(hours=1)).isoformat(),
+                end_time=(datetime.fromisoformat(event["start_date"]) + timedelta(hours=2)).isoformat(),
+            ),
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        session_id = session_resp.json()["id"]
+
+        response = c.delete(
+            f"/events/{event['id']}/sessions/{session_id}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+
+        get_resp = c.get(f"/events/{event['id']}")
+        assert get_resp.status_code == 200
+        assert get_resp.json()["sessions"] == []
+
+
+def test_update_event_rejects_dates_excluding_session():
+    """Test that event date updates fail when existing sessions would fall outside the new range."""
+    for c in _admin_client():
+        token = _get_admin_token(c)
+        create_resp = c.post(
+            "/events",
+            json=_create_event_payload(),
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        event = create_resp.json()
+        event_start = datetime.fromisoformat(event["start_date"])
+
+        c.post(
+            f"/events/{event['id']}/sessions",
+            json=_create_session_payload(
+                start_time=(event_start + timedelta(hours=3)).isoformat(),
+                end_time=(event_start + timedelta(hours=4)).isoformat(),
+            ),
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        response = c.patch(
+            f"/events/{event['id']}",
+            json={"end_date": (event_start + timedelta(hours=2)).isoformat()},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 422
 
 
 # --- Admin-only endpoints: update (PATCH) ---

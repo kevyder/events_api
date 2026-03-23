@@ -13,7 +13,7 @@ class GetEvent:
 
     async def execute(self, event_id: uuid.UUID) -> Event:
         """Return the event or raise EventNotFoundError."""
-        event = await self._event_repository.get_by_id(event_id)
+        event = await self._event_repository.get_by_id_with_sessions(event_id)
         if event is None:
             raise EventNotFoundError(str(event_id))
         return event

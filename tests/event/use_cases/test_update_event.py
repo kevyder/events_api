@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from src.event.domain.exceptions import EventNotFoundError, InvalidEventError
-from src.event.domain.models import Event, Status
+from src.event.domain.models import Event, Session, Status
 from src.event.domain.repositories import EventRepository
 from src.event.use_cases.update_event import UpdateEvent
 
@@ -33,6 +33,7 @@ async def test_update_event_name_only():
     repo = AsyncMock(spec=EventRepository)
     existing = _make_event()
     repo.get_by_id.return_value = existing
+    repo.list_sessions_by_event.return_value = []
     repo.update.side_effect = lambda event: event
     use_case = UpdateEvent(repo)
 
@@ -49,6 +50,7 @@ async def test_update_event_clear_description():
     repo = AsyncMock(spec=EventRepository)
     existing = _make_event()
     repo.get_by_id.return_value = existing
+    repo.list_sessions_by_event.return_value = []
     repo.update.side_effect = lambda event: event
     use_case = UpdateEvent(repo)
 
@@ -72,6 +74,7 @@ async def test_update_event_invalid_capacity():
     repo = AsyncMock(spec=EventRepository)
     existing = _make_event()
     repo.get_by_id.return_value = existing
+    repo.list_sessions_by_event.return_value = []
     use_case = UpdateEvent(repo)
 
     with pytest.raises(InvalidEventError, match="Capacity must be a positive integer"):
@@ -85,6 +88,7 @@ async def test_update_event_invalid_dates():
     repo = AsyncMock(spec=EventRepository)
     existing = _make_event()
     repo.get_by_id.return_value = existing
+    repo.list_sessions_by_event.return_value = []
     use_case = UpdateEvent(repo)
 
     with pytest.raises(InvalidEventError, match="End date must be after start date"):
@@ -92,3 +96,26 @@ async def test_update_event_invalid_dates():
             event_id=existing.id,
             start_date=existing.end_date + timedelta(days=1),
         )
+
+
+async def test_update_event_rejects_dates_outside_existing_sessions():
+    """Test that shrinking event dates around existing sessions raises InvalidEventError."""
+    repo = AsyncMock(spec=EventRepository)
+    existing = _make_event()
+    repo.get_by_id.return_value = existing
+    repo.list_sessions_by_event.return_value = [
+        Session.model_construct(
+            id=uuid.uuid4(),
+            event_id=existing.id,
+            title="Closing",
+            speaker="Jane Doe",
+            start_time=existing.end_date - timedelta(hours=2),
+            end_time=existing.end_date - timedelta(hours=1),
+        )
+    ]
+    use_case = UpdateEvent(repo)
+
+    with pytest.raises(InvalidEventError, match="Event dates must include all existing sessions"):
+        await use_case.execute(event_id=existing.id, end_date=existing.end_date - timedelta(hours=3))
+
+    repo.update.assert_not_awaited()

@@ -10,7 +10,7 @@ from src.auth.api.routes import router as auth_router
 from src.auth.domain.exceptions import AuthenticationError, AuthorizationError, UserAlreadyExistsError
 from src.auth.infrastructure.bootstrap.seed_admin import seed_admin
 from src.event.api.routes import router as event_router
-from src.event.domain.exceptions import EventNotFoundError, InvalidEventError
+from src.event.domain.exceptions import EventNotFoundError, InvalidEventError, InvalidSessionError, SessionNotFoundError
 
 
 @asynccontextmanager
@@ -51,4 +51,14 @@ async def event_not_found_handler(_request: Request, exc: EventNotFoundError) ->
 
 @app.exception_handler(InvalidEventError)
 async def invalid_event_handler(_request: Request, exc: InvalidEventError) -> JSONResponse:
+    return JSONResponse(status_code=422, content={"detail": str(exc)})
+
+
+@app.exception_handler(SessionNotFoundError)
+async def session_not_found_handler(_request: Request, exc: SessionNotFoundError) -> JSONResponse:
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+
+@app.exception_handler(InvalidSessionError)
+async def invalid_session_handler(_request: Request, exc: InvalidSessionError) -> JSONResponse:
     return JSONResponse(status_code=422, content={"detail": str(exc)})

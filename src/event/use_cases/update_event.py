@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from src.event.domain.exceptions import EventNotFoundError, InvalidEventError
@@ -44,4 +44,21 @@ class UpdateEvent:
         except ValueError as err:
             raise InvalidEventError(str(err)) from err
 
+        sessions = await self._event_repository.list_sessions_by_event(event_id)
+        normalized_start_date = self._normalize_datetime(updated.start_date)
+        normalized_end_date = self._normalize_datetime(updated.end_date)
+        if any(
+            self._normalize_datetime(session.start_time) < normalized_start_date
+            or self._normalize_datetime(session.end_time) > normalized_end_date
+            for session in sessions
+        ):
+            raise InvalidEventError("Event dates must include all existing sessions")
+
         return await self._event_repository.update(updated)
+
+    @staticmethod
+    def _normalize_datetime(value: datetime) -> datetime:
+        """Normalize datetimes to UTC for safe comparison."""
+        if value.tzinfo is None:
+            return value.replace(tzinfo=UTC)
+        return value.astimezone(UTC)

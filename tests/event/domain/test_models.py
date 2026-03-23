@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from src.event.domain.models import Event, Status
+from src.event.domain.models import Event, Session, Status
 
 
 def test_event_creation_defaults():
@@ -96,3 +96,57 @@ def test_status_values():
     assert Status.PAST == "past"
     assert Status.FULL == "full"
     assert Status.CANCELED == "canceled"
+
+
+def test_session_creation_defaults():
+    """Test that a session gets a UUID id."""
+    now = datetime.now()
+    session = Session(
+        event_id=uuid.uuid4(),
+        title="Opening Keynote",
+        speaker="Jane Doe",
+        start_time=now + timedelta(days=1),
+        end_time=now + timedelta(days=1, hours=1),
+    )
+    assert isinstance(session.id, uuid.UUID)
+    assert session.title == "Opening Keynote"
+    assert session.speaker == "Jane Doe"
+
+
+def test_session_invalid_time_range():
+    """Test that session end_time must be after start_time."""
+    now = datetime.now()
+    with pytest.raises(ValueError, match="Session end time must be after start time"):
+        Session(
+            event_id=uuid.uuid4(),
+            title="Bad Session",
+            speaker="Jane Doe",
+            start_time=now + timedelta(days=1, hours=2),
+            end_time=now + timedelta(days=1, hours=1),
+        )
+
+
+def test_session_blank_title():
+    """Test that blank title is rejected."""
+    now = datetime.now()
+    with pytest.raises(ValueError, match="Session title is required"):
+        Session(
+            event_id=uuid.uuid4(),
+            title="   ",
+            speaker="Jane Doe",
+            start_time=now + timedelta(days=1),
+            end_time=now + timedelta(days=1, hours=1),
+        )
+
+
+def test_session_blank_speaker():
+    """Test that blank speaker is rejected."""
+    now = datetime.now()
+    with pytest.raises(ValueError, match="Session speaker is required"):
+        Session(
+            event_id=uuid.uuid4(),
+            title="Opening Keynote",
+            speaker="   ",
+            start_time=now + timedelta(days=1),
+            end_time=now + timedelta(days=1, hours=1),
+        )

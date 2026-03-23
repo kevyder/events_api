@@ -9,6 +9,7 @@ from alembic import context
 from src.auth.infrastructure.database.models.user import UserModel  # noqa: F401
 from src.config import settings
 from src.event.infrastructure.database.models.event import EventModel  # noqa: F401
+from src.event.infrastructure.database.models.session import SessionModel  # noqa: F401
 
 config = context.config
 

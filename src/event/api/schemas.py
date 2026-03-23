@@ -27,6 +27,37 @@ class EventUpdateRequest(BaseModel):
     status: Status | None = None
 
 
+class SessionCreateRequest(BaseModel):
+    """Request body for creating a session."""
+
+    title: str = Field(..., min_length=1, max_length=255)
+    speaker: str = Field(..., min_length=1, max_length=255)
+    start_time: datetime
+    end_time: datetime
+
+
+class SessionUpdateRequest(BaseModel):
+    """Request body for partially updating a session."""
+
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    speaker: str | None = Field(default=None, min_length=1, max_length=255)
+    start_time: datetime | None = None
+    end_time: datetime | None = None
+
+
+class SessionResponse(BaseModel):
+    """Response body representing a session."""
+
+    id: uuid.UUID
+    event_id: uuid.UUID
+    title: str
+    speaker: str
+    start_time: datetime
+    end_time: datetime
+    created_at: datetime
+    updated_at: datetime
+
+
 class EventResponse(BaseModel):
     """Response body representing an event."""
 
@@ -39,3 +70,9 @@ class EventResponse(BaseModel):
     status: str
     created_at: datetime
     updated_at: datetime
+
+
+class EventDetailResponse(EventResponse):
+    """Response body representing an event with its sessions."""
+
+    sessions: list[SessionResponse]

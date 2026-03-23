@@ -14,3 +14,17 @@ class InvalidEventError(EventDomainException):
 
     def __init__(self, message: str):
         super().__init__(message)
+
+
+class SessionNotFoundError(EventDomainException):
+    """Raised when a session cannot be found."""
+
+    def __init__(self, session_id: str):
+        super().__init__(f"Session '{session_id}' not found")
+
+
+class InvalidSessionError(EventDomainException):
+    """Raised when session data fails domain validation."""
+
+    def __init__(self, message: str):
+        super().__init__(message)
