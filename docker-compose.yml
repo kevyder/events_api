@@ -30,12 +30,11 @@ services:
       - JWT_SECRET_KEY=dev-secret-key-change-in-production
       - DEFAULT_ADMIN_EMAIL=admin@email.com
       - DEFAULT_ADMIN_PASSWORD=admin
+      - UVICORN_RELOAD=true
     depends_on:
       db:
         condition: service_healthy
-    command: >
-      bash -c "alembic upgrade head
-      && fastapi dev src/main.py --host 0.0.0.0 --port 8080 --reload"
+    command: /app/start.sh
 
 volumes:
   postgres_data:

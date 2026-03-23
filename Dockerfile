@@ -18,9 +18,14 @@ RUN uv sync --no-dev
 
 # Copy project files
 COPY src/ ./src/
+COPY alembic/ ./alembic/
+COPY alembic.ini ./
+COPY start.sh ./
+
+RUN chmod +x /app/start.sh
 
 # Expose port
 EXPOSE 8080
 
-# Run FastAPI app with uvicorn
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8080"]
+# Run FastAPI app
+CMD ["/app/start.sh"]
