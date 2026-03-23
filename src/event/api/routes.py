@@ -13,6 +13,7 @@ from src.event.api.dependencies import (
     get_get_event,
     get_leave_event,
     get_list_events,
+    get_list_my_events,
     get_participate_in_event,
     get_search_events,
     get_update_event,
@@ -35,6 +36,7 @@ from src.event.use_cases.delete_session import DeleteSession
 from src.event.use_cases.get_event import GetEvent
 from src.event.use_cases.leave_event import LeaveEvent
 from src.event.use_cases.list_events import ListEvents
+from src.event.use_cases.list_my_events import ListMyEvents
 from src.event.use_cases.participate_in_event import ParticipateInEvent
 from src.event.use_cases.search_events import SearchEvents
 from src.event.use_cases.update_event import _UNSET, UpdateEvent
@@ -101,6 +103,15 @@ async def search_events(
 ):
     """Search events by name using a SQL LIKE query. Open to everyone."""
     return await use_case.execute(name)
+
+
+@router.get("/me/participations", response_model=Page[EventResponse])
+async def list_my_participations(
+    use_case: ListMyEvents = Depends(get_list_my_events),
+    current_user: User = Depends(get_current_user),
+):
+    """List events the current user is participating in. Authenticated users only."""
+    return await use_case.execute(current_user.id)
 
 
 @router.get("/{event_id}", response_model=EventDetailResponse)

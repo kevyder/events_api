@@ -84,3 +84,10 @@ class EventRepository(ABC):
     @abstractmethod
     async def remove_participant(self, event_id: uuid.UUID, user_id: uuid.UUID) -> None:
         """Remove a user from the participants of an event."""
+
+    @abstractmethod
+    async def list_participating_events(self, user_id: uuid.UUID) -> Any:
+        """Retrieve events a user is participating in, with pagination.
+
+        Returns a paginated result whose concrete type is determined by the adapter.
+        """

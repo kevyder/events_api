@@ -10,6 +10,7 @@ from src.event.use_cases.delete_session import DeleteSession
 from src.event.use_cases.get_event import GetEvent
 from src.event.use_cases.leave_event import LeaveEvent
 from src.event.use_cases.list_events import ListEvents
+from src.event.use_cases.list_my_events import ListMyEvents
 from src.event.use_cases.participate_in_event import ParticipateInEvent
 from src.event.use_cases.search_events import SearchEvents
 from src.event.use_cases.update_event import UpdateEvent
@@ -69,3 +70,8 @@ def get_participate_in_event(session: AsyncSession = Depends(get_async_session))
 def get_leave_event(session: AsyncSession = Depends(get_async_session)) -> LeaveEvent:
     """Inject a LeaveEvent use case."""
     return LeaveEvent(SQLAlchemyEventRepository(session))
+
+
+def get_list_my_events(session: AsyncSession = Depends(get_async_session)) -> ListMyEvents:
+    """Inject a ListMyEvents use case."""
+    return ListMyEvents(SQLAlchemyEventRepository(session))

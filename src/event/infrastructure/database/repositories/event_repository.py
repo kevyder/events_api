@@ -218,6 +218,20 @@ class SQLAlchemyEventRepository(EventRepository):
             await self._session.delete(model)
             await self._session.commit()
 
+    async def list_participating_events(self, user_id: uuid.UUID) -> Any:
+        """Retrieve events a user is participating in, with DB-level pagination."""
+        query = (
+            sqlmodel_select(EventModel)
+            .join(EventParticipantModel, EventModel.id == EventParticipantModel.event_id)
+            .where(EventParticipantModel.user_id == user_id)
+            .order_by(EventModel.created_at.desc())
+        )
+        return await apaginate(
+            self._session,
+            query,
+            transformer=lambda items: [self._to_domain(row) for row in items],
+        )
+
     @staticmethod
     def _to_domain(model: EventModel) -> Event:
         """Map a SQLAlchemy model to a domain entity."""

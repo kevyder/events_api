@@ -1058,3 +1058,180 @@ def test_update_event_capacity_increase_restores_upcoming():
         )
         assert patch_resp.status_code == 200
         assert patch_resp.json()["status"] == "upcoming"
+
+
+# --- My participations endpoint ---
+
+
+def test_my_participations_requires_auth(client):
+    """Test that unauthenticated users cannot access their participations."""
+    response = client.get("/events/me/participations")
+    assert response.status_code == 401
+
+
+def test_my_participations_empty():
+    """Test that a user with no participations sees an empty page."""
+    for c in _admin_client():
+        user_token = _get_user_token(c)
+
+        response = c.get(
+            "/events/me/participations",
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["items"] == []
+        assert data["total"] == 0
+
+
+def test_my_participations_returns_only_joined_events():
+    """Test that a user only sees events they have joined."""
+    for c in _admin_client():
+        admin_token = _get_admin_token(c)
+        user_token = _get_user_token(c)
+
+        # Create two events
+        resp1 = c.post(
+            "/events",
+            json=_create_event_payload(name="Joined Event"),
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        resp2 = c.post(
+            "/events",
+            json=_create_event_payload(name="Not Joined Event"),
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        joined_event = resp1.json()
+        _not_joined = resp2.json()
+
+        # User joins only the first event
+        c.post(
+            f"/events/{joined_event['id']}/participate",
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+
+        response = c.get(
+            "/events/me/participations",
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 1
+        assert len(data["items"]) == 1
+        assert data["items"][0]["id"] == joined_event["id"]
+        assert data["items"][0]["name"] == "Joined Event"
+
+
+def test_my_participations_does_not_leak_other_users_events():
+    """Test that a user cannot see events joined by another user."""
+    for c in _admin_client():
+        admin_token = _get_admin_token(c)
+        user_token = _get_user_token(c)
+
+        # Register a second regular user
+        c.post("/auth/sign-up", json={"email": "other@example.com", "password": "password123"})
+        other_login = c.post("/auth/login", json={"email": "other@example.com", "password": "password123"})
+        other_token = other_login.json()["access_token"]
+
+        # Create an event; other user joins it
+        resp = c.post(
+            "/events",
+            json=_create_event_payload(name="Other User Event"),
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        event = resp.json()
+        c.post(
+            f"/events/{event['id']}/participate",
+            headers={"Authorization": f"Bearer {other_token}"},
+        )
+
+        # Original user should see nothing
+        response = c.get(
+            "/events/me/participations",
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        assert response.status_code == 200
+        assert response.json()["total"] == 0
+
+
+def test_my_participations_pagination():
+    """Test that my participations supports pagination."""
+    for c in _admin_client():
+        admin_token = _get_admin_token(c)
+        user_token = _get_user_token(c)
+
+        # Create 3 events and join them all
+        for i in range(3):
+            resp = c.post(
+                "/events",
+                json=_create_event_payload(name=f"Event {i}"),
+                headers={"Authorization": f"Bearer {admin_token}"},
+            )
+            event = resp.json()
+            c.post(
+                f"/events/{event['id']}/participate",
+                headers={"Authorization": f"Bearer {user_token}"},
+            )
+
+        # Request page 1 with size 2
+        response = c.get(
+            "/events/me/participations",
+            params={"page": 1, "size": 2},
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 3
+        assert len(data["items"]) == 2
+        assert data["page"] == 1
+        assert data["pages"] == 2
+
+        # Request page 2
+        response2 = c.get(
+            "/events/me/participations",
+            params={"page": 2, "size": 2},
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        data2 = response2.json()
+        assert data2["total"] == 3
+        assert len(data2["items"]) == 1
+        assert data2["page"] == 2
+
+
+def test_my_participations_reflects_leave():
+    """Test that leaving an event removes it from the user's participations."""
+    for c in _admin_client():
+        admin_token = _get_admin_token(c)
+        user_token = _get_user_token(c)
+
+        resp = c.post(
+            "/events",
+            json=_create_event_payload(name="Will Leave"),
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        event = resp.json()
+
+        # Join
+        c.post(
+            f"/events/{event['id']}/participate",
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        assert (
+            c.get(
+                "/events/me/participations",
+                headers={"Authorization": f"Bearer {user_token}"},
+            ).json()["total"]
+            == 1
+        )
+
+        # Leave
+        c.delete(
+            f"/events/{event['id']}/participate",
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        response = c.get(
+            "/events/me/participations",
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        assert response.status_code == 200
+        assert response.json()["total"] == 0
