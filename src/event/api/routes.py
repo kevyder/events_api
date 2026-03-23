@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from fastapi_pagination import Page
 
 from src.auth.api.dependencies import require_role
@@ -10,6 +10,7 @@ from src.event.api.dependencies import (
     get_delete_event,
     get_get_event,
     get_list_events,
+    get_search_events,
     get_update_event,
 )
 from src.event.api.schemas import EventCreateRequest, EventResponse, EventUpdateRequest
@@ -18,6 +19,7 @@ from src.event.use_cases.create_event import CreateEvent
 from src.event.use_cases.delete_event import DeleteEvent
 from src.event.use_cases.get_event import GetEvent
 from src.event.use_cases.list_events import ListEvents
+from src.event.use_cases.search_events import SearchEvents
 from src.event.use_cases.update_event import _UNSET, UpdateEvent
 
 router = APIRouter(prefix="/events", tags=["events"])
@@ -42,6 +44,15 @@ def _to_response(event: Event) -> EventResponse:
 async def list_events(use_case: ListEvents = Depends(get_list_events)):
     """List events with pagination. Open to everyone."""
     return await use_case.execute()
+
+
+@router.get("/search", response_model=Page[EventResponse])
+async def search_events(
+    name: str = Query(..., min_length=1),
+    use_case: SearchEvents = Depends(get_search_events),
+):
+    """Search events by name using a SQL LIKE query. Open to everyone."""
+    return await use_case.execute(name)
 
 
 @router.get("/{event_id}", response_model=EventResponse)

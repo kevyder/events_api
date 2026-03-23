@@ -27,6 +27,16 @@ class SQLAlchemyEventRepository(EventRepository):
             transformer=lambda items: [self._to_domain(row) for row in items],
         )
 
+    async def search_by_name(self, name: str) -> Any:
+        """Search events by name with DB-level pagination, sorted by created_at desc."""
+        pattern = f"%{name}%"
+        query = sqlmodel_select(EventModel).where(EventModel.name.ilike(pattern)).order_by(EventModel.created_at.desc())
+        return await apaginate(
+            self._session,
+            query,
+            transformer=lambda items: [self._to_domain(row) for row in items],
+        )
+
     async def get_by_id(self, event_id: uuid.UUID) -> Event | None:
         """Retrieve an event by ID."""
         stmt = select(EventModel).where(EventModel.id == event_id)

@@ -107,6 +107,77 @@ def test_get_event_invalid_uuid(client):
     assert response.status_code == 422
 
 
+def test_search_events_no_auth_required(client):
+    """Test that searching events does not require authentication."""
+    response = client.get("/events/search", params={"name": "test"})
+    assert response.status_code == 200
+
+
+def test_search_events_by_partial_name():
+    """Test that searching events by partial name returns only matching events."""
+    for c in _admin_client():
+        token = _get_admin_token(c)
+
+        c.post(
+            "/events",
+            json=_create_event_payload(name="Python Conference"),
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        c.post(
+            "/events",
+            json=_create_event_payload(name="FastAPI Workshop"),
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        c.post(
+            "/events",
+            json=_create_event_payload(name="PyData Meetup"),
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        response = c.get("/events/search", params={"name": "Python"})
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 1
+        assert len(data["items"]) == 1
+        assert data["items"][0]["name"] == "Python Conference"
+
+
+def test_search_events_is_case_insensitive():
+    """Test that searching events by name uses case-insensitive matching."""
+    for c in _admin_client():
+        token = _get_admin_token(c)
+
+        c.post(
+            "/events",
+            json=_create_event_payload(name="React Summit"),
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        response = c.get("/events/search", params={"name": "react"})
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 1
+        assert data["items"][0]["name"] == "React Summit"
+
+
+def test_search_events_returns_empty_page_when_no_matches(client):
+    """Test that searching with no matches returns an empty page."""
+    response = client.get("/events/search", params={"name": "missing"})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["items"] == []
+    assert data["total"] == 0
+
+
+def test_search_events_requires_name_query_param(client):
+    """Test that searching events requires the name query param."""
+    response = client.get("/events/search")
+    assert response.status_code == 422
+
+
 # --- Admin-only endpoints: create ---
 
 

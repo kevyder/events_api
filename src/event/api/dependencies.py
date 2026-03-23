@@ -7,6 +7,7 @@ from src.event.use_cases.create_event import CreateEvent
 from src.event.use_cases.delete_event import DeleteEvent
 from src.event.use_cases.get_event import GetEvent
 from src.event.use_cases.list_events import ListEvents
+from src.event.use_cases.search_events import SearchEvents
 from src.event.use_cases.update_event import UpdateEvent
 
 
@@ -18,6 +19,11 @@ def get_list_events(session: AsyncSession = Depends(get_async_session)) -> ListE
 def get_get_event(session: AsyncSession = Depends(get_async_session)) -> GetEvent:
     """Inject a GetEvent use case."""
     return GetEvent(SQLAlchemyEventRepository(session))
+
+
+def get_search_events(session: AsyncSession = Depends(get_async_session)) -> SearchEvents:
+    """Inject a SearchEvents use case."""
+    return SearchEvents(SQLAlchemyEventRepository(session))
 
 
 def get_create_event(session: AsyncSession = Depends(get_async_session)) -> CreateEvent:

@@ -16,6 +16,13 @@ class EventRepository(ABC):
         """
 
     @abstractmethod
+    async def search_by_name(self, name: str) -> Any:
+        """Search events by name with pagination.
+
+        Returns a paginated result whose concrete type is determined by the adapter.
+        """
+
+    @abstractmethod
     async def get_by_id(self, event_id: uuid.UUID) -> Event | None:
         """Retrieve an event by ID. Returns None if not found."""
 
