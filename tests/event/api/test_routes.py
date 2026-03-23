@@ -805,3 +805,256 @@ def test_list_events_default_pagination(client):
     data = resp.json()
     assert data["page"] == 1
     assert data["size"] == 50
+
+
+# --- Participation ---
+
+
+def test_participate_requires_auth():
+    """Test that unauthenticated users cannot participate."""
+    for c in _admin_client():
+        token = _get_admin_token(c)
+        create_resp = c.post(
+            "/events",
+            json=_create_event_payload(),
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        event_id = create_resp.json()["id"]
+
+        response = c.post(f"/events/{event_id}/participate")
+        assert response.status_code == 401
+
+
+def test_participate_success():
+    """Test that a regular user can participate in an upcoming event."""
+    for c in _admin_client():
+        admin_token = _get_admin_token(c)
+        user_token = _get_user_token(c)
+
+        create_resp = c.post(
+            "/events",
+            json=_create_event_payload(capacity=10),
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        event = create_resp.json()
+
+        response = c.post(
+            f"/events/{event['id']}/participate",
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        assert response.status_code == 200
+        assert response.json()["status"] == "upcoming"
+
+
+def test_participate_fills_event_sets_status_full():
+    """Test that filling the last spot sets event status to full."""
+    for c in _admin_client():
+        admin_token = _get_admin_token(c)
+        user_token = _get_user_token(c)
+
+        create_resp = c.post(
+            "/events",
+            json=_create_event_payload(capacity=1),
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        event = create_resp.json()
+
+        response = c.post(
+            f"/events/{event['id']}/participate",
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        assert response.status_code == 200
+        assert response.json()["status"] == "full"
+
+
+def test_participate_duplicate_rejected():
+    """Test that joining the same event twice returns 409."""
+    for c in _admin_client():
+        admin_token = _get_admin_token(c)
+        user_token = _get_user_token(c)
+
+        create_resp = c.post(
+            "/events",
+            json=_create_event_payload(capacity=10),
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        event = create_resp.json()
+
+        c.post(
+            f"/events/{event['id']}/participate",
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+
+        response = c.post(
+            f"/events/{event['id']}/participate",
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        assert response.status_code == 409
+
+
+def test_participate_full_event_rejected():
+    """Test that joining a full event returns 409."""
+    for c in _admin_client():
+        admin_token = _get_admin_token(c)
+        user_token = _get_user_token(c)
+
+        # Create event with capacity 1 and fill it with admin
+        create_resp = c.post(
+            "/events",
+            json=_create_event_payload(capacity=1),
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        event = create_resp.json()
+
+        c.post(
+            f"/events/{event['id']}/participate",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+
+        # Now the event is full, regular user should be rejected
+        response = c.post(
+            f"/events/{event['id']}/participate",
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        assert response.status_code == 409
+
+
+def test_participate_non_upcoming_event_rejected():
+    """Test that joining a non-upcoming event returns 409."""
+    for c in _admin_client():
+        admin_token = _get_admin_token(c)
+        user_token = _get_user_token(c)
+
+        create_resp = c.post(
+            "/events",
+            json=_create_event_payload(capacity=10),
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        event = create_resp.json()
+
+        # Change status to ongoing
+        c.patch(
+            f"/events/{event['id']}",
+            json={"status": "ongoing"},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+
+        response = c.post(
+            f"/events/{event['id']}/participate",
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        assert response.status_code == 409
+
+
+def test_leave_event_success():
+    """Test that a user can leave an event they joined."""
+    for c in _admin_client():
+        admin_token = _get_admin_token(c)
+        user_token = _get_user_token(c)
+
+        create_resp = c.post(
+            "/events",
+            json=_create_event_payload(capacity=10),
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        event = create_resp.json()
+
+        c.post(
+            f"/events/{event['id']}/participate",
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+
+        response = c.delete(
+            f"/events/{event['id']}/participate",
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        assert response.status_code == 200
+
+
+def test_leave_event_restores_upcoming_from_full():
+    """Test that leaving a full event restores status to upcoming."""
+    for c in _admin_client():
+        admin_token = _get_admin_token(c)
+        user_token = _get_user_token(c)
+
+        create_resp = c.post(
+            "/events",
+            json=_create_event_payload(capacity=1),
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        event = create_resp.json()
+
+        # Fill the event
+        join_resp = c.post(
+            f"/events/{event['id']}/participate",
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        assert join_resp.json()["status"] == "full"
+
+        # Leave the event
+        leave_resp = c.delete(
+            f"/events/{event['id']}/participate",
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        assert leave_resp.status_code == 200
+        assert leave_resp.json()["status"] == "upcoming"
+
+
+def test_update_event_capacity_decrease_sets_full():
+    """Test that reducing capacity to current participants sets status to full via API."""
+    for c in _admin_client():
+        admin_token = _get_admin_token(c)
+        user_token = _get_user_token(c)
+
+        create_resp = c.post(
+            "/events",
+            json=_create_event_payload(capacity=10),
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        event = create_resp.json()
+
+        c.post(
+            f"/events/{event['id']}/participate",
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+
+        # Reduce capacity to 1 (current participant count)
+        patch_resp = c.patch(
+            f"/events/{event['id']}",
+            json={"capacity": 1},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert patch_resp.status_code == 200
+        assert patch_resp.json()["status"] == "full"
+
+
+def test_update_event_capacity_increase_restores_upcoming():
+    """Test that increasing capacity on a full event restores upcoming status via API."""
+    for c in _admin_client():
+        admin_token = _get_admin_token(c)
+        user_token = _get_user_token(c)
+
+        create_resp = c.post(
+            "/events",
+            json=_create_event_payload(capacity=1),
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        event = create_resp.json()
+
+        c.post(
+            f"/events/{event['id']}/participate",
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+
+        # Verify it's full
+        get_resp = c.get(f"/events/{event['id']}")
+        assert get_resp.json()["status"] == "full"
+
+        # Increase capacity
+        patch_resp = c.patch(
+            f"/events/{event['id']}",
+            json={"capacity": 10},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert patch_resp.status_code == 200
+        assert patch_resp.json()["status"] == "upcoming"

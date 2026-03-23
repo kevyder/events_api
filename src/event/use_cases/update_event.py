@@ -54,6 +54,14 @@ class UpdateEvent:
         ):
             raise InvalidEventError("Event dates must include all existing sessions")
 
+        # Sync status when capacity changes: full <-> upcoming
+        if capacity is not None:
+            participant_count = await self._event_repository.count_participants(event_id)
+            if participant_count >= updated.capacity and updated.status == Status.UPCOMING:
+                updated.status = Status.FULL
+            elif participant_count < updated.capacity and updated.status == Status.FULL:
+                updated.status = Status.UPCOMING
+
         return await self._event_repository.update(updated)
 
     @staticmethod

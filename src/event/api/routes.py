@@ -3,7 +3,7 @@ import uuid
 from fastapi import APIRouter, Depends, Query
 from fastapi_pagination import Page
 
-from src.auth.api.dependencies import require_role
+from src.auth.api.dependencies import get_current_user, require_role
 from src.auth.domain.models import User
 from src.event.api.dependencies import (
     get_create_event,
@@ -11,7 +11,9 @@ from src.event.api.dependencies import (
     get_delete_event,
     get_delete_session,
     get_get_event,
+    get_leave_event,
     get_list_events,
+    get_participate_in_event,
     get_search_events,
     get_update_event,
     get_update_session,
@@ -31,7 +33,9 @@ from src.event.use_cases.create_session import CreateSession
 from src.event.use_cases.delete_event import DeleteEvent
 from src.event.use_cases.delete_session import DeleteSession
 from src.event.use_cases.get_event import GetEvent
+from src.event.use_cases.leave_event import LeaveEvent
 from src.event.use_cases.list_events import ListEvents
+from src.event.use_cases.participate_in_event import ParticipateInEvent
 from src.event.use_cases.search_events import SearchEvents
 from src.event.use_cases.update_event import _UNSET, UpdateEvent
 from src.event.use_cases.update_session import UpdateSession
@@ -214,3 +218,25 @@ async def delete_event(
     await use_case.execute(event_id)
 
     return "Event deleted successfully."
+
+
+@router.post("/{event_id}/participate", response_model=EventResponse, status_code=200)
+async def participate_in_event(
+    event_id: uuid.UUID,
+    use_case: ParticipateInEvent = Depends(get_participate_in_event),
+    current_user: User = Depends(get_current_user),
+):
+    """Join an event as a participant. Authenticated users only."""
+    event = await use_case.execute(event_id=event_id, user_id=current_user.id)
+    return _to_response(event)
+
+
+@router.delete("/{event_id}/participate", response_model=EventResponse, status_code=200)
+async def leave_event(
+    event_id: uuid.UUID,
+    use_case: LeaveEvent = Depends(get_leave_event),
+    current_user: User = Depends(get_current_user),
+):
+    """Leave an event. Authenticated users only."""
+    event = await use_case.execute(event_id=event_id, user_id=current_user.id)
+    return _to_response(event)

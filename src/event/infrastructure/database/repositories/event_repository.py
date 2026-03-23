@@ -3,13 +3,14 @@ from datetime import datetime
 from typing import Any
 
 from fastapi_pagination.ext.sqlmodel import apaginate
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select as sqlmodel_select
 
 from src.event.domain.models import Event, Session, Status
 from src.event.domain.repositories import EventRepository
 from src.event.infrastructure.database.models.event import EventModel
+from src.event.infrastructure.database.models.participant import EventParticipantModel
 from src.event.infrastructure.database.models.session import SessionModel
 
 
@@ -170,7 +171,47 @@ class SQLAlchemyEventRepository(EventRepository):
         for session_model in session_result.scalars().all():
             await self._session.delete(session_model)
 
+        participant_stmt = select(EventParticipantModel).where(EventParticipantModel.event_id == event_id)
+        participant_result = await self._session.execute(participant_stmt)
+        for participant_model in participant_result.scalars().all():
+            await self._session.delete(participant_model)
+
         stmt = select(EventModel).where(EventModel.id == event_id)
+        result = await self._session.execute(stmt)
+        model = result.scalar_one_or_none()
+        if model is not None:
+            await self._session.delete(model)
+            await self._session.commit()
+
+    # --- Participation ---
+
+    async def count_participants(self, event_id: uuid.UUID) -> int:
+        """Return the number of participants for an event."""
+        stmt = select(func.count()).where(EventParticipantModel.event_id == event_id)
+        result = await self._session.execute(stmt)
+        return result.scalar_one()
+
+    async def is_participant(self, event_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+        """Check whether a user is already participating in an event."""
+        stmt = select(EventParticipantModel).where(
+            EventParticipantModel.event_id == event_id,
+            EventParticipantModel.user_id == user_id,
+        )
+        result = await self._session.execute(stmt)
+        return result.scalar_one_or_none() is not None
+
+    async def add_participant(self, event_id: uuid.UUID, user_id: uuid.UUID) -> None:
+        """Register a user as a participant of an event."""
+        model = EventParticipantModel(event_id=event_id, user_id=user_id)
+        self._session.add(model)
+        await self._session.commit()
+
+    async def remove_participant(self, event_id: uuid.UUID, user_id: uuid.UUID) -> None:
+        """Remove a user from the participants of an event."""
+        stmt = select(EventParticipantModel).where(
+            EventParticipantModel.event_id == event_id,
+            EventParticipantModel.user_id == user_id,
+        )
         result = await self._session.execute(stmt)
         model = result.scalar_one_or_none()
         if model is not None:

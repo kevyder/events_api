@@ -66,3 +66,21 @@ class EventRepository(ABC):
     @abstractmethod
     async def delete(self, event_id: uuid.UUID) -> None:
         """Delete an event by ID."""
+
+    # --- Participation ---
+
+    @abstractmethod
+    async def count_participants(self, event_id: uuid.UUID) -> int:
+        """Return the number of participants for an event."""
+
+    @abstractmethod
+    async def is_participant(self, event_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+        """Check whether a user is already participating in an event."""
+
+    @abstractmethod
+    async def add_participant(self, event_id: uuid.UUID, user_id: uuid.UUID) -> None:
+        """Register a user as a participant of an event."""
+
+    @abstractmethod
+    async def remove_participant(self, event_id: uuid.UUID, user_id: uuid.UUID) -> None:
+        """Remove a user from the participants of an event."""

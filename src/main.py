@@ -10,7 +10,15 @@ from src.auth.api.routes import router as auth_router
 from src.auth.domain.exceptions import AuthenticationError, AuthorizationError, UserAlreadyExistsError
 from src.auth.infrastructure.bootstrap.seed_admin import seed_admin
 from src.event.api.routes import router as event_router
-from src.event.domain.exceptions import EventNotFoundError, InvalidEventError, InvalidSessionError, SessionNotFoundError
+from src.event.domain.exceptions import (
+    AlreadyParticipatingError,
+    EventFullError,
+    EventNotFoundError,
+    EventNotUpcomingError,
+    InvalidEventError,
+    InvalidSessionError,
+    SessionNotFoundError,
+)
 
 
 @asynccontextmanager
@@ -62,3 +70,18 @@ async def session_not_found_handler(_request: Request, exc: SessionNotFoundError
 @app.exception_handler(InvalidSessionError)
 async def invalid_session_handler(_request: Request, exc: InvalidSessionError) -> JSONResponse:
     return JSONResponse(status_code=422, content={"detail": str(exc)})
+
+
+@app.exception_handler(EventFullError)
+async def event_full_handler(_request: Request, exc: EventFullError) -> JSONResponse:
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+
+@app.exception_handler(EventNotUpcomingError)
+async def event_not_upcoming_handler(_request: Request, exc: EventNotUpcomingError) -> JSONResponse:
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+
+@app.exception_handler(AlreadyParticipatingError)
+async def already_participating_handler(_request: Request, exc: AlreadyParticipatingError) -> JSONResponse:
+    return JSONResponse(status_code=409, content={"detail": str(exc)})

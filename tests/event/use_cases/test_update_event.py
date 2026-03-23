@@ -119,3 +119,35 @@ async def test_update_event_rejects_dates_outside_existing_sessions():
         await use_case.execute(event_id=existing.id, end_date=existing.end_date - timedelta(hours=3))
 
     repo.update.assert_not_awaited()
+
+
+async def test_update_event_capacity_decrease_sets_full():
+    """Test that reducing capacity to current participants sets status to full."""
+    repo = AsyncMock(spec=EventRepository)
+    existing = _make_event(capacity=10, status=Status.UPCOMING)
+    repo.get_by_id.return_value = existing
+    repo.list_sessions_by_event.return_value = []
+    repo.count_participants.return_value = 5
+    repo.update.side_effect = lambda event: event
+    use_case = UpdateEvent(repo)
+
+    result = await use_case.execute(event_id=existing.id, capacity=5)
+
+    assert result.status == Status.FULL
+    repo.update.assert_awaited_once()
+
+
+async def test_update_event_capacity_increase_restores_upcoming():
+    """Test that increasing capacity on a full event restores upcoming status."""
+    repo = AsyncMock(spec=EventRepository)
+    existing = _make_event(capacity=5, status=Status.FULL)
+    repo.get_by_id.return_value = existing
+    repo.list_sessions_by_event.return_value = []
+    repo.count_participants.return_value = 5
+    repo.update.side_effect = lambda event: event
+    use_case = UpdateEvent(repo)
+
+    result = await use_case.execute(event_id=existing.id, capacity=10)
+
+    assert result.status == Status.UPCOMING
+    repo.update.assert_awaited_once()

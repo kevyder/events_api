@@ -28,3 +28,24 @@ class InvalidSessionError(EventDomainException):
 
     def __init__(self, message: str):
         super().__init__(message)
+
+
+class EventFullError(EventDomainException):
+    """Raised when a user tries to participate in a full event."""
+
+    def __init__(self, event_id: str):
+        super().__init__(f"Event '{event_id}' is full")
+
+
+class EventNotUpcomingError(EventDomainException):
+    """Raised when a user tries to participate in an event that is not upcoming."""
+
+    def __init__(self, event_id: str):
+        super().__init__(f"Event '{event_id}' is not accepting participants")
+
+
+class AlreadyParticipatingError(EventDomainException):
+    """Raised when a user tries to join an event they already participate in."""
+
+    def __init__(self, event_id: str):
+        super().__init__(f"Already participating in event '{event_id}'")
