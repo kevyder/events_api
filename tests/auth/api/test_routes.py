@@ -5,7 +5,13 @@ from fastapi.testclient import TestClient
 import src.database as database
 from src.database import get_async_session
 from src.main import app
-from tests.conftest import _override_get_async_session, test_async_session_factory, test_engine
+from tests.conftest import (
+    _override_get_async_session,
+    _setup_test_db,
+    _teardown_test_db,
+    test_async_session_factory,
+    test_engine,
+)
 
 
 def test_register_and_login(client):
@@ -92,6 +98,8 @@ def test_admin_only_with_seeded_admin():
     database.async_session_factory = test_async_session_factory
     app.dependency_overrides[get_async_session] = _override_get_async_session
 
+    _setup_test_db()
+
     with patch("src.auth.infrastructure.bootstrap.seed_admin.settings") as mock_settings:
         mock_settings.DEFAULT_ADMIN_EMAIL = "admin@example.com"
         mock_settings.DEFAULT_ADMIN_PASSWORD = "password123"
@@ -108,6 +116,8 @@ def test_admin_only_with_seeded_admin():
     app.dependency_overrides.clear()
     database.engine = original_engine
     database.async_session_factory = original_session_factory
+
+    _teardown_test_db()
 
 
 def test_register_admin_requires_admin(client):
@@ -135,6 +145,8 @@ def test_register_admin_with_seeded_admin():
     database.async_session_factory = test_async_session_factory
     app.dependency_overrides[get_async_session] = _override_get_async_session
 
+    _setup_test_db()
+
     with patch("src.auth.infrastructure.bootstrap.seed_admin.settings") as mock_settings:
         mock_settings.DEFAULT_ADMIN_EMAIL = "admin@example.com"
         mock_settings.DEFAULT_ADMIN_PASSWORD = "password123"
@@ -159,3 +171,5 @@ def test_register_admin_with_seeded_admin():
     app.dependency_overrides.clear()
     database.engine = original_engine
     database.async_session_factory = original_session_factory
+
+    _teardown_test_db()

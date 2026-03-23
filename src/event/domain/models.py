@@ -1,8 +1,8 @@
+import uuid
 from datetime import datetime
 from enum import StrEnum
-from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class Status(StrEnum):
@@ -18,20 +18,26 @@ class Status(StrEnum):
 class Event(BaseModel):
     """Domain entity representing an event."""
 
+    id: uuid.UUID = Field(default_factory=uuid.uuid4)
     name: str
-    description: str
+    description: str | None = None
     start_date: datetime
     end_date: datetime
     capacity: int
     status: Status = Status.UPCOMING
-    id: str = Field(default_factory=lambda: str(uuid4()))
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
 
-    def validate_date(self):
-        """Validate if date is in the future for upcoming events."""
-        if self.status == Status.UPCOMING and self.start_date <= datetime.now():
-            raise ValueError("Upcoming events must have a future start date.")
-
-    def validate_dates(self):
-        """Validate that end date is after start date."""
+    @model_validator(mode="after")
+    def _validate_dates(self) -> "Event":
+        """Validate that end_date is strictly after start_date."""
         if self.end_date <= self.start_date:
-            raise ValueError("End date must be after start date.")
+            raise ValueError("End date must be after start date")
+        return self
+
+    @model_validator(mode="after")
+    def _validate_capacity(self) -> "Event":
+        """Validate that capacity is a positive integer."""
+        if self.capacity <= 0:
+            raise ValueError("Capacity must be a positive integer")
+        return self
