@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi_pagination.ext.sqlmodel import apaginate
@@ -89,10 +89,10 @@ class SQLAlchemyEventRepository(EventRepository):
             event_id=session.event_id,
             title=session.title,
             speaker=session.speaker,
-            start_time=session.start_time,
-            end_time=session.end_time,
-            created_at=session.created_at,
-            updated_at=session.updated_at,
+            start_time=self._to_storage_datetime(session.start_time),
+            end_time=self._to_storage_datetime(session.end_time),
+            created_at=self._to_storage_datetime(session.created_at),
+            updated_at=self._to_storage_datetime(session.updated_at),
         )
         self._session.add(model)
         await self._session.commit()
@@ -109,8 +109,8 @@ class SQLAlchemyEventRepository(EventRepository):
 
         model.title = session.title
         model.speaker = session.speaker
-        model.start_time = session.start_time
-        model.end_time = session.end_time
+        model.start_time = self._to_storage_datetime(session.start_time)
+        model.end_time = self._to_storage_datetime(session.end_time)
         model.updated_at = datetime.now()
 
         await self._session.commit()
@@ -132,12 +132,12 @@ class SQLAlchemyEventRepository(EventRepository):
             id=event.id,
             name=event.name,
             description=event.description,
-            start_date=event.start_date,
-            end_date=event.end_date,
+            start_date=self._to_storage_datetime(event.start_date),
+            end_date=self._to_storage_datetime(event.end_date),
             capacity=event.capacity,
             status=event.status.value,
-            created_at=event.created_at,
-            updated_at=event.updated_at,
+            created_at=self._to_storage_datetime(event.created_at),
+            updated_at=self._to_storage_datetime(event.updated_at),
         )
         self._session.add(model)
         await self._session.commit()
@@ -154,8 +154,8 @@ class SQLAlchemyEventRepository(EventRepository):
 
         model.name = event.name
         model.description = event.description
-        model.start_date = event.start_date
-        model.end_date = event.end_date
+        model.start_date = self._to_storage_datetime(event.start_date)
+        model.end_date = self._to_storage_datetime(event.end_date)
         model.capacity = event.capacity
         model.status = event.status.value
         model.updated_at = datetime.now()
@@ -260,3 +260,10 @@ class SQLAlchemyEventRepository(EventRepository):
             created_at=model.created_at,
             updated_at=model.updated_at,
         )
+
+    @staticmethod
+    def _to_storage_datetime(value: datetime) -> datetime:
+        """Convert aware datetimes to naive UTC for DB columns without timezone."""
+        if value.tzinfo is None:
+            return value
+        return value.astimezone(UTC).replace(tzinfo=None)

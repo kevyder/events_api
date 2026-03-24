@@ -232,6 +232,26 @@ def test_create_event_success():
         assert "updated_at" in data
 
 
+def test_create_event_accepts_utc_aware_datetimes():
+    """Test that an admin can create an event with UTC-aware datetimes."""
+    for c in _admin_client():
+        token = _get_admin_token(c)
+        payload = _create_event_payload(
+            start_date="2026-03-30T18:00:00Z",
+            end_date="2026-03-31T01:00:00Z",
+        )
+        response = c.post(
+            "/events",
+            json=payload,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert data["name"] == payload["name"]
+        assert data["start_date"].startswith("2026-03-30T18:00:00")
+        assert data["end_date"].startswith("2026-03-31T01:00:00")
+
+
 def test_create_event_invalid_dates():
     """Test that invalid date order returns 422."""
     for c in _admin_client():
