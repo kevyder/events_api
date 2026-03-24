@@ -16,5 +16,8 @@ class Settings:
     DEFAULT_ADMIN_EMAIL: str = os.getenv("DEFAULT_ADMIN_EMAIL", "")
     DEFAULT_ADMIN_PASSWORD: str = os.getenv("DEFAULT_ADMIN_PASSWORD", "")
 
+    # CORS settings
+    CORS_ORIGINS: list[str] = os.getenv("CORS_ORIGINS", "").split(",")
+
 
 settings = Settings()

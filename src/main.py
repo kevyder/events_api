@@ -10,6 +10,7 @@ import src.database as database
 from src.auth.api.routes import router as auth_router
 from src.auth.domain.exceptions import AuthenticationError, AuthorizationError, UserAlreadyExistsError
 from src.auth.infrastructure.bootstrap.seed_admin import seed_admin
+from src.config import settings
 from src.event.api.routes import router as event_router
 from src.event.domain.exceptions import (
     AlreadyParticipatingError,
@@ -32,9 +33,12 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
 
 app = FastAPI(title="Events API", version="1.0.0", lifespan=lifespan)
 
+
+allow_origins = settings.CORS_ORIGINS
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allow_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

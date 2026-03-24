@@ -30,6 +30,7 @@ services:
       - JWT_SECRET_KEY=dev-secret-key-change-in-production
       - DEFAULT_ADMIN_EMAIL=admin@email.com
       - DEFAULT_ADMIN_PASSWORD=admin
+      - CORS_ORIGINS=http://localhost:5173
       - UVICORN_RELOAD=true
     depends_on:
       db:
